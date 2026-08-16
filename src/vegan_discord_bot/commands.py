@@ -144,6 +144,17 @@ class ProductValidationCommands(commands.Cog):
             )
             return
 
+        if not preview.checkings:
+            await interaction.edit_original_response(
+                content=(
+                    "❌ Impossible de valider l’EAN "
+                    f"`{normalized_ean}` : aucune demande liée n’a été trouvée. "
+                    "Aucune modification n’a été envoyée."
+                ),
+                view=None,
+            )
+            return
+
         contributor_mention = f"<@{interaction.user.id}>"
         view = ValidationConfirmationView(
             api_client=self.api_client,

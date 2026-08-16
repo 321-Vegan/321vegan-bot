@@ -1,10 +1,13 @@
 import asyncio
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 import httpx
 from pydantic import ValidationError
 
 from vegan_discord_bot.models import (
+    CheckingResponse,
+    CheckingStatus,
     ProductResponse,
     ProductState,
     ProductStatus,
@@ -87,6 +90,26 @@ class VeganApiClient:
             json=payload,
         )
         return self._parse_product(response)
+
+    async def update_checking(
+        self,
+        *,
+        checking_id: int,
+        product_id: int,
+        status: CheckingStatus,
+        response_text: str,
+    ) -> CheckingResponse:
+        response = await self._authenticated_request(
+            "PUT",
+            f"/checkings/{checking_id}",
+            json={
+                "product_id": product_id,
+                "status": status.value,
+                "responded_on": datetime.now(timezone.utc).isoformat(),
+                "response": response_text,
+            },
+        )
+        return self._parse_checking(response)
 
     async def _authenticate(
         self,
@@ -184,6 +207,15 @@ class VeganApiClient:
         except (ValueError, ValidationError) as error:
             raise VeganApiError(
                 "Réponse produit invalide reçue de l’API."
+            ) from error
+
+    @staticmethod
+    def _parse_checking(response: httpx.Response) -> CheckingResponse:
+        try:
+            return CheckingResponse.model_validate(response.json())
+        except (ValueError, ValidationError) as error:
+            raise VeganApiError(
+                "Réponse de résolution invalide reçue de l’API."
             ) from error
 
     async def aclose(self) -> None:

@@ -125,7 +125,10 @@ def conflict_message(preview: ProductResponse, latest: ProductResponse) -> str:
     )
 
 
-def no_op_message(product: ProductResponse, contributor_mention: str) -> str:
+def no_op_message(
+    product: ProductResponse,
+    contributor_mention: str,
+) -> str:
     reason_line = (
         f"\nRaison non végane : **{product.problem_description}**"
         if (
@@ -155,4 +158,20 @@ def api_failure_message(
         f"Contributeurice : {contributor_mention}\n"
         f"Erreur : {detail[:400]}\n"
         "Vérifiez l’état du produit avant de réessayer."
+    )
+
+
+def partial_failure_message(
+    preview: ProductResponse,
+    contributor_mention: str,
+    detail: str,
+) -> str:
+    return (
+        "⚠️ **Validation partiellement terminée**\n"
+        f"Produit : **{product_name(preview)}** (`{preview.ean}`)\n"
+        f"Contributeurice : {contributor_mention}\n"
+        "Une première étape a été enregistrée, mais le produit n’a pas pu "
+        "être mis à jour.\n"
+        f"Erreur : {detail[:400]}\n"
+        "Relancez la commande : elle reprendra uniquement l’étape restante."
     )

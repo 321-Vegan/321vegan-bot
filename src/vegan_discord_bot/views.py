@@ -10,10 +10,12 @@ from vegan_discord_bot.messages import (
     conflict_message,
     expired_message,
     no_op_message,
+    partial_failure_message,
     processing_message,
     success_message,
 )
 from vegan_discord_bot.models import (
+    CheckingStatus,
     NonVeganReason,
     ProductResponse,
     ProductState,
@@ -29,6 +31,7 @@ def product_changed(preview: ProductResponse, latest: ProductResponse) -> bool:
         preview.status != latest.status
         or preview.state != latest.state
         or preview.problem_description != latest.problem_description
+        or preview.checkings != latest.checkings
         or preview.updated_at != latest.updated_at
     )
 
@@ -78,6 +81,12 @@ class ValidationConfirmationView(discord.ui.View):
             non_vegan_reason.brand_response_description
             if non_vegan_reason is not None
             else None
+        )
+        self.proposed_checking_status = CheckingStatus(proposed_status.value)
+        self.checking_response_text = (
+            self.problem_description
+            if self.problem_description is not None
+            else "Vegan (réponse de la marque)"
         )
         self.retry_delay = retry_delay
         self.message: discord.Message | None = None
@@ -133,6 +142,7 @@ class ValidationConfirmationView(discord.ui.View):
                 return
 
         message = interaction.message or self.message
+        any_checking_updated = False
         try:
             latest = await self.api_client.fetch_product(self.preview.ean)
             if product_changed(self.preview, latest):
@@ -144,37 +154,76 @@ class ValidationConfirmationView(discord.ui.View):
                 self.stop()
                 return
 
-            if (
+            if not latest.checkings:
+                raise VeganApiError(
+                    "Aucune demande liée n’a été trouvée pour ce produit."
+                )
+
+            product_is_current = (
                 latest.status == self.proposed_status
                 and latest.state == ProductState.WAITING_PUBLISH
                 and (
                     self.problem_description is None
                     or latest.problem_description == self.problem_description
                 )
-            ):
+            )
+            checkings_to_update = [
+                checking
+                for checking in latest.checkings
+                if not (
+                    checking.status == self.proposed_checking_status
+                    and checking.responded_on is not None
+                    and checking.response == self.checking_response_text
+                )
+            ]
+
+            if product_is_current and not checkings_to_update:
                 await self._edit_final_safely(
                     message,
-                    content=no_op_message(latest, self.contributor_mention),
+                    content=no_op_message(
+                        latest,
+                        self.contributor_mention,
+                    ),
                     operation="publish no-op result",
                 )
                 self.stop()
                 return
 
-            update_kwargs = dict(
-                product_id=latest.id,
-                ean=latest.ean,
-                status=self.proposed_status,
-            )
-            if self.problem_description is not None:
-                update_kwargs["problem_description"] = self.problem_description
-            updated = await self.api_client.update_product(**update_kwargs)
+            for checking in checkings_to_update:
+                await self.api_client.update_checking(
+                    checking_id=checking.id,
+                    product_id=latest.id,
+                    status=self.proposed_checking_status,
+                    response_text=self.checking_response_text,
+                )
+                any_checking_updated = True
+
+            if product_is_current:
+                updated = latest
+            else:
+                update_kwargs = dict(
+                    product_id=latest.id,
+                    ean=latest.ean,
+                    status=self.proposed_status,
+                )
+                if self.problem_description is not None:
+                    update_kwargs["problem_description"] = self.problem_description
+                updated = await self.api_client.update_product(**update_kwargs)
         except VeganApiError as error:
             await self._edit_final_safely(
                 message,
-                content=api_failure_message(
-                    self.preview,
-                    self.contributor_mention,
-                    error.message,
+                content=(
+                    partial_failure_message(
+                        self.preview,
+                        self.contributor_mention,
+                        error.message,
+                    )
+                    if any_checking_updated
+                    else api_failure_message(
+                        self.preview,
+                        self.contributor_mention,
+                        error.message,
+                    )
                 ),
                 operation="publish API error",
             )
@@ -184,10 +233,18 @@ class ValidationConfirmationView(discord.ui.View):
             log.exception("Unexpected product-validation failure")
             await self._edit_final_safely(
                 message,
-                content=api_failure_message(
-                    self.preview,
-                    self.contributor_mention,
-                    "Erreur interne inattendue.",
+                content=(
+                    partial_failure_message(
+                        self.preview,
+                        self.contributor_mention,
+                        "Erreur interne inattendue.",
+                    )
+                    if any_checking_updated
+                    else api_failure_message(
+                        self.preview,
+                        self.contributor_mention,
+                        "Erreur interne inattendue.",
+                    )
                 ),
                 operation="publish unexpected error",
             )
@@ -197,7 +254,11 @@ class ValidationConfirmationView(discord.ui.View):
         try:
             await self._edit_final(
                 message,
-                content=success_message(latest, updated, self.contributor_mention),
+                content=success_message(
+                    latest,
+                    updated,
+                    self.contributor_mention,
+                ),
                 attempts=2,
             )
         except Exception:

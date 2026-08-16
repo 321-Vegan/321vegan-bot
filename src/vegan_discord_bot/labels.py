@@ -3,8 +3,8 @@ from vegan_discord_bot.models import ProductState, ProductStatus
 
 STATUS_LABELS = {
     ProductStatus.MAYBE_VEGAN: "Maybe vegan",
-    ProductStatus.VEGAN: "Vegan",
-    ProductStatus.NON_VEGAN: "Non vegan",
+    ProductStatus.VEGAN: "🌱 Vegan",
+    ProductStatus.NON_VEGAN: "❌ Non vegan",
     ProductStatus.NOT_FOUND: "Introuvable",
 }
 

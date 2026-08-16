@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock
 
 from vegan_discord_bot.api_client import VeganApiTimeoutError
 from vegan_discord_bot.models import (
+    CheckingResponse,
+    CheckingStatus,
     NonVeganReason,
     ProductResponse,
     ProductState,
@@ -16,11 +18,28 @@ from vegan_discord_bot.views import ValidationConfirmationView
 BASE_TIME = datetime(2026, 8, 4, 9, 0, tzinfo=timezone.utc)
 
 
+def checking(
+    *,
+    status=CheckingStatus.PENDING,
+    responded_on=None,
+    response=None,
+    checking_id=42,
+):
+    return CheckingResponse(
+        id=checking_id,
+        requested_on=BASE_TIME - timedelta(days=1),
+        responded_on=responded_on,
+        response=response,
+        status=status,
+    )
+
+
 def product(
     *,
     status=ProductStatus.MAYBE_VEGAN,
     state=ProductState.WAITING_BRAND_REPLY,
     problem_description=None,
+    checkings=None,
     updated_at=BASE_TIME,
 ):
     return ProductResponse(
@@ -30,6 +49,7 @@ def product(
         status=status,
         state=state,
         problem_description=problem_description,
+        checkings=[checking()] if checkings is None else checkings,
         updated_at=updated_at,
     )
 
@@ -57,6 +77,8 @@ def interaction(*, user_id=123, interaction_id=999, message=None):
 
 class ValidationConfirmationViewTestCase(unittest.IsolatedAsyncioTestCase):
     def make_view(self, api, preview, target, reason=None):
+        if not hasattr(api, "update_checking"):
+            api.update_checking = AsyncMock()
         return ValidationConfirmationView(
             api_client=api,
             preview=preview,
@@ -114,30 +136,78 @@ class ValidationConfirmationViewTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_vegan_and_non_vegan_validations_and_corrections(self):
         cases = [
-            (ProductStatus.MAYBE_VEGAN, ProductStatus.VEGAN),
-            (ProductStatus.MAYBE_VEGAN, ProductStatus.NON_VEGAN),
-            (ProductStatus.VEGAN, ProductStatus.NON_VEGAN),
-            (ProductStatus.NON_VEGAN, ProductStatus.VEGAN),
+            (ProductStatus.MAYBE_VEGAN, ProductStatus.VEGAN, None),
+            (
+                ProductStatus.MAYBE_VEGAN,
+                ProductStatus.NON_VEGAN,
+                NonVeganReason.FLAVORS,
+            ),
+            (
+                ProductStatus.VEGAN,
+                ProductStatus.NON_VEGAN,
+                NonVeganReason.NATURAL_FLAVORS,
+            ),
+            (ProductStatus.NON_VEGAN, ProductStatus.VEGAN, None),
         ]
-        for index, (before, target) in enumerate(cases):
+        for index, (before, target, reason) in enumerate(cases):
             with self.subTest(before=before, target=target):
-                preview = product(status=before)
+                preview = product(
+                    status=before,
+                    checkings=[
+                        checking(checking_id=42),
+                        checking(checking_id=99),
+                    ],
+                )
+                problem_description = (
+                    reason.brand_response_description
+                    if reason is not None
+                    else None
+                )
                 api = SimpleNamespace(
                     fetch_product=AsyncMock(return_value=preview),
-                    update_product=AsyncMock(return_value=updated_product(target)),
+                    update_product=AsyncMock(
+                        return_value=updated_product(
+                            target,
+                            problem_description=problem_description,
+                        )
+                    ),
                 )
-                view = self.make_view(api, preview, target)
+                view = self.make_view(api, preview, target, reason)
                 invoker = interaction(interaction_id=1000 + index)
                 await view.handle_confirm(invoker)
                 api.fetch_product.assert_awaited_once_with("0123456789012")
-                api.update_product.assert_awaited_once_with(
+                expected_product_update = dict(
                     product_id=12,
                     ean="0123456789012",
                     status=target,
                 )
+                if problem_description is not None:
+                    expected_product_update["problem_description"] = (
+                        problem_description
+                    )
+                api.update_product.assert_awaited_once_with(
+                    **expected_product_update
+                )
+                response_text = (
+                    problem_description
+                    if problem_description is not None
+                    else "Vegan (réponse de la marque)"
+                )
+                assert [
+                    call.kwargs for call in api.update_checking.await_args_list
+                ] == [
+                    {
+                        "checking_id": checking_id,
+                        "product_id": 12,
+                        "status": CheckingStatus(target.value),
+                        "response_text": response_text,
+                    }
+                    for checking_id in (42, 99)
+                ]
                 final = invoker.message.edit.await_args.kwargs["content"]
                 assert "Produit validé" in final
                 assert "À publier" in final
+                assert "Checking" not in final
 
     async def test_same_status_with_different_state_still_updates(self):
         preview = product(
@@ -214,6 +284,13 @@ class ValidationConfirmationViewTestCase(unittest.IsolatedAsyncioTestCase):
         preview = product(
             status=ProductStatus.VEGAN,
             state=ProductState.WAITING_PUBLISH,
+            checkings=[
+                checking(
+                    status=CheckingStatus.VEGAN,
+                    responded_on=BASE_TIME,
+                    response="Vegan (réponse de la marque)",
+                )
+            ],
         )
         api = SimpleNamespace(
             fetch_product=AsyncMock(return_value=preview),

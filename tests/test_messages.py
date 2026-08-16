@@ -31,7 +31,7 @@ def test_confirmation_uses_friendly_french_labels():
     assert "0123456789012" in message
     assert "Maybe vegan" in message
     assert "À vérifier" in message
-    assert "Vegan" in message
+    assert "🌱 Vegan" in message
     assert "À PUBLIER" in message
     assert "<@123>" in message
     assert "Capture de la réponse de la marque" in message
@@ -70,7 +70,7 @@ def test_french_success_log_contains_before_and_authoritative_after_values():
     )
     message = success_message(previous, updated, "<@123>")
     assert "Produit validé par <@123>" in message
-    assert "Vegan** → **Non vegan" in message
+    assert "🌱 Vegan** → **❌ Non vegan" in message
     assert "Publié** → **À publier" in message
     assert "0123456789012" in message
     assert "VITAMINE D (réponse de la marque)" in message

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProductStatus(StrEnum):
@@ -9,6 +9,13 @@ class ProductStatus(StrEnum):
     NON_VEGAN = "NON_VEGAN"
     MAYBE_VEGAN = "MAYBE_VEGAN"
     NOT_FOUND = "NOT_FOUND"
+
+
+class CheckingStatus(StrEnum):
+    PENDING = "PENDING"
+    VEGAN = "VEGAN"
+    NON_VEGAN = "NON_VEGAN"
+    MAYBE_VEGAN = "MAYBE_VEGAN"
 
 
 class NonVeganReason(StrEnum):
@@ -37,6 +44,16 @@ class TokenResponse(BaseModel):
     token_type: str
 
 
+class CheckingResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    requested_on: datetime
+    responded_on: datetime | None = None
+    response: str | None = None
+    status: CheckingStatus
+
+
 class ProductResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -46,4 +63,5 @@ class ProductResponse(BaseModel):
     status: ProductStatus
     state: ProductState
     problem_description: str | None = None
+    checkings: list[CheckingResponse] = Field(default_factory=list)
     updated_at: datetime
