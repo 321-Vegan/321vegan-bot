@@ -53,7 +53,7 @@ def test_non_vegan_confirmation_contains_selected_brand_response_reason():
     )
 
     assert (
-        "CLARIFIÉ AVEC DES PRODUITS D'ORIGINE ANIMALE "
+        "Clarifié avec des produits d'origine animale "
         "(réponse de la marque)"
     ) in message
 
@@ -66,11 +66,11 @@ def test_french_success_log_contains_before_and_authoritative_after_values():
     updated = product(
         status=ProductStatus.NON_VEGAN,
         state=ProductState.WAITING_PUBLISH,
-        problem_description="VITAMINE D (réponse de la marque)",
+        problem_description="Vitamine D d'origine animale (réponse de la marque)",
     )
     message = success_message(previous, updated, "<@123>")
     assert "Produit validé par <@123>" in message
     assert "🌱 Vegan** → **❌ Non vegan" in message
     assert "Publié** → **À publier" in message
     assert "0123456789012" in message
-    assert "VITAMINE D (réponse de la marque)" in message
+    assert "Vitamine D d'origine animale (réponse de la marque)" in message

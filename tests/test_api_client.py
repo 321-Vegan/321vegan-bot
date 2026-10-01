@@ -204,7 +204,7 @@ class VeganApiClientTestCase(unittest.IsolatedAsyncioTestCase):
                 product_id=12,
                 ean="0123456789012",
                 status=ProductStatus.NON_VEGAN,
-                problem_description="ARÔMES (réponse de la marque)",
+                problem_description="Arômes (réponse de la marque)",
             )
         finally:
             await http_client.aclose()
@@ -215,7 +215,7 @@ class VeganApiClientTestCase(unittest.IsolatedAsyncioTestCase):
             "ean": "0123456789012",
             "status": "NON_VEGAN",
             "state": "WAITING_PUBLISH",
-            "problem_description": "ARÔMES (réponse de la marque)",
+            "problem_description": "Arômes (réponse de la marque)",
         }
         assert updated.status == ProductStatus.NON_VEGAN
         assert all("checking" not in r.url.path.lower() for r in requests)

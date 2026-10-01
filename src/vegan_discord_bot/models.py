@@ -19,11 +19,14 @@ class CheckingStatus(StrEnum):
 
 
 class NonVeganReason(StrEnum):
-    FLAVORS = "ARÔMES"
-    NATURAL_FLAVORS = "ARÔMES NATURELS"
-    VITAMIN_D = "VITAMINE D"
+    FLAVORS = "Arômes"
+    NATURAL_FLAVORS = "Arômes naturels"
+    VITAMIN_D = "Vitamine D d'origine animale"
     ANIMAL_PRODUCT_CLARIFICATION = (
-        "CLARIFIÉ AVEC DES PRODUITS D'ORIGINE ANIMALE"
+        "Clarifié avec des produits d'origine animale"
+    )
+    TRUFFLE_ANIMAL_EXPLOITATION = (
+        "Exploitation d'animaux pour la récolte des truffes"
     )
 
     @property

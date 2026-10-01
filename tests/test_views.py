@@ -236,7 +236,7 @@ class ValidationConfirmationViewTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_non_vegan_reason_replaces_problem_description(self):
         preview = product(problem_description="Ancienne raison")
         reason = NonVeganReason.NATURAL_FLAVORS
-        expected_description = "ARÔMES NATURELS (réponse de la marque)"
+        expected_description = "Arômes naturels (réponse de la marque)"
         api = SimpleNamespace(
             fetch_product=AsyncMock(return_value=preview),
             update_product=AsyncMock(
@@ -265,10 +265,10 @@ class ValidationConfirmationViewTestCase(unittest.IsolatedAsyncioTestCase):
         preview = product(
             status=ProductStatus.NON_VEGAN,
             state=ProductState.WAITING_PUBLISH,
-            problem_description="ARÔMES (réponse de la marque)",
+            problem_description="Arômes (réponse de la marque)",
         )
         reason = NonVeganReason.VITAMIN_D
-        expected_description = "VITAMINE D (réponse de la marque)"
+        expected_description = "Vitamine D d'origine animale (réponse de la marque)"
         api = SimpleNamespace(
             fetch_product=AsyncMock(return_value=preview),
             update_product=AsyncMock(
