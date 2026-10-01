@@ -66,6 +66,7 @@ class ValidationConfirmationView(discord.ui.View):
         proposed_status: ProductStatus,
         invoker_id: int,
         contributor_mention: str,
+        capture: discord.Attachment,
         non_vegan_reason: NonVeganReason | None = None,
         timeout: float = 180,
         retry_delay: float = 0.5,
@@ -76,6 +77,7 @@ class ValidationConfirmationView(discord.ui.View):
         self.proposed_status = proposed_status
         self.invoker_id = invoker_id
         self.contributor_mention = contributor_mention
+        self.capture = capture
         self.non_vegan_reason = non_vegan_reason
         self.problem_description = (
             non_vegan_reason.brand_response_description
@@ -158,6 +160,13 @@ class ValidationConfirmationView(discord.ui.View):
                 raise VeganApiError(
                     "Aucune demande liée n’a été trouvée pour ce produit."
                 )
+
+            await self.api_client.upload_brand_answer(
+                product_id=latest.id,
+                filename=self.capture.filename,
+                content=await self.capture.read(),
+                content_type=self.capture.content_type,
+            )
 
             product_is_current = (
                 latest.status == self.proposed_status

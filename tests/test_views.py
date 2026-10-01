@@ -76,15 +76,24 @@ def interaction(*, user_id=123, interaction_id=999, message=None):
 
 
 class ValidationConfirmationViewTestCase(unittest.IsolatedAsyncioTestCase):
-    def make_view(self, api, preview, target, reason=None):
+    def make_view(self, api, preview, target, reason=None, capture=None):
         if not hasattr(api, "update_checking"):
             api.update_checking = AsyncMock()
+        if not hasattr(api, "upload_brand_answer"):
+            api.upload_brand_answer = AsyncMock()
+        if capture is None:
+            capture = SimpleNamespace(
+                filename="reponse.png",
+                content_type="image/png",
+                read=AsyncMock(return_value=b"fake-image-bytes"),
+            )
         return ValidationConfirmationView(
             api_client=api,
             preview=preview,
             proposed_status=target,
             invoker_id=123,
             contributor_mention="<@123>",
+            capture=capture,
             non_vegan_reason=reason,
             retry_delay=0,
         )

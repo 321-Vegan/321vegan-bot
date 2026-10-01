@@ -162,6 +162,7 @@ class ProductValidationCommands(commands.Cog):
             proposed_status=proposed_status,
             invoker_id=interaction.user.id,
             contributor_mention=contributor_mention,
+            capture=capture,
             non_vegan_reason=non_vegan_reason,
         )
         message = await interaction.edit_original_response(

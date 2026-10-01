@@ -91,6 +91,21 @@ class VeganApiClient:
         )
         return self._parse_product(response)
 
+    async def upload_brand_answer(
+        self,
+        *,
+        product_id: int,
+        filename: str,
+        content: bytes,
+        content_type: str | None,
+    ) -> ProductResponse:
+        response = await self._authenticated_request(
+            "POST",
+            f"/products/{product_id}/brand-answer",
+            files={"file": (filename, content, content_type)},
+        )
+        return self._parse_product(response)
+
     async def update_checking(
         self,
         *,
